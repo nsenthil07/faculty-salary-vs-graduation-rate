@@ -1,6 +1,6 @@
 ---
 title: "Final Project"
-author: "FirstName LastName"
+author: "Nandita Senthil"
 date: "`r Sys.Date()`"
 documentclass: article
 geometry: margin=1in
@@ -53,17 +53,92 @@ set.seed(98261936)
 
 ## Introduction
 
-
-
+Is there a linear relationship between a college's graduation rate and its faculty's average salary? 
 
 ## Preprocessing
 
+The College dataset is large and mostly clean, but several steps need to be prepared before beginning analysis. Since my research question focuses on whether a college’s graduation rate is related to the average faculty salary, the first step is to single out only the columns needed for this analysis. I selected the variables C150_4 (graduation rate) and AVGFACSAL (average faculty salary) and saved them into a dataset for easier analysis.
 
+Because the original dataset uses its own column abbreviations, I renamed the variables for organization purposes. This makes visualization and modeling steps easier to understand. Neither of my variables are categorical, so I didn’t need to do any recoding for this project. I also did not remove rows with missing values because the instructions say to wait until later in the analysis before filtering out NAs
+
+
+```{r}
+# Select the columns I need for my analysis
+college_reduced <- college %>%
+  select(C150_4, AVGFACSAL)
+
+# Rename them to the variable names I want to use
+college_clean <- college_reduced %>%
+  rename(
+    GRAD_RATE = C150_4,
+    AVGFACSAL = AVGFACSAL
+  )
+
+
+college_clean <- college_clean %>%
+  mutate(
+    GRAD_RATE = GRAD_RATE * 100
+  )
+
+```
 
 
 ## Visualization
 
+```{r}
 
+ggplot(college_clean, aes(x = GRAD_RATE)) +
+  geom_histogram(binwidth = 5, fill = "pink", color = "black") +
+  labs(
+    title = "Distribution of Graduation Rates",
+    x = "Graduation Rate Percentage",
+    y = "Count of Colleges"
+  )
+
+```
+The histogram shows that graduation rates vary widely among colleges. Most institutions fall between about 30% and 70%, with fewer colleges having extremely high or extremely low rates. The shape is slightly right-skewed, meaning more colleges have mid-range graduation rates than high ones. This variation suggests that many factors influence graduation rates, which makes it important to check how faculty salary relates to this outcome.
+
+
+
+```{r}
+ggplot(college_clean, aes(x = AVGFACSAL)) +
+  geom_histogram(binwidth = 1000, fill = "purple", color = "black") +
+  labs(
+    title = "Distribution of Average Faculty Salaries",
+    x = "Average Faculty Salary (US Dollars)",
+    y = "Count of Colleges"
+  )
+
+```
+
+The histogram shows that most colleges pay between $40,000 and $80,000 on average. There are fewer colleges with very high salaries, which makes the distribution slightly right-skewed. This suggests that salary levels vary noticeably between institutions, and these differences could affect factors like student success and graduation outcomes.
+
+
+```{r}
+ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
+  geom_point(alpha = 0.5, color = "red") +
+  labs(
+    title = "Graduation Rate vs. Average Faculty Salary",
+    x = "Average Faculty Salary (US Dollars)",
+    y = "Graduation Rate Percentage"
+  )
+
+```
+
+The scatter plot shows a positive trend. Colleges that pay higher average faculty salaries tend to have higher graduation rates, although the points are somewhat spread out. This shows that faculty salary might play a part in student success, but it is unlikely to be the only factor. The moderate spread of points suggests other variables may also influence graduation rates.
+
+
+```{r}
+ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
+  geom_point(alpha = 0.5, color = "darkorange") +
+  facet_wrap(~ LOCALE) +
+  labs(
+    title = "Graduation Rate vs Salary by Region",
+    x = "Average Faculty Salary (USD)",
+    y = "Graduation Rate (%)"
+  )
+
+```
 
 
 ## Summary Statistics
