@@ -53,43 +53,47 @@ set.seed(98261936)
 
 ## Introduction
 
-Is there a linear relationship between a college's graduation rate and its faculty's average salary? 
+The purpose of this project is to investigate whether there is a relationship between a college’s graduation rate and the average salary paid to its faculty. Using the U.S. Department of Education College Scorecard dataset, which includes information on thousands of institutions across the country, I focused on two continuous variables: graduation rate (GRAD_RATE) as the response variable and average faculty salary (AVGFACSAL) as the explanatory variable. I chose this question because faculty salaries can reflect how much a college invests in teaching quality and resources, and it is reasonable to wonder whether better paid instructors contribute to higher student success. To answer this question, I used exploratory visualizations, summary statistics, and a linear regression model to evaluate the strength and direction of this relationship. Because both variables are continuous, I will be using modeling to analyze the connection between faculty salary and graduation rates.
+
 
 ## Preprocessing
 
-The College dataset is large and mostly clean, but several steps need to be prepared before beginning analysis. Since my research question focuses on whether a college’s graduation rate is related to the average faculty salary, the first step is to single out only the columns needed for this analysis. I selected the variables C150_4 (graduation rate) and AVGFACSAL (average faculty salary) and saved them into a dataset for easier analysis.
-
-Because the original dataset uses its own column abbreviations, I renamed the variables for organization purposes. This makes visualization and modeling steps easier to understand. Neither of my variables are categorical, so I didn’t need to do any recoding for this project. I also did not remove rows with missing values because the instructions say to wait until later in the analysis before filtering out NAs
+The College Scorecard dataset is large and mostly clean, but some preparation is needed before analysis. Since my research question focuses on whether graduation rate is related to average faculty salary, the first step was to extract only the columns necessary for this study. I selected C150_4 (graduation rate), AVGFACSAL (average faculty salary), and LOCALE (the location type of the institution) and stored them in a smaller dataset to work with more efficiently. Next, I renamed the variables to more fitting names so they are easier to understand during visualization and modeling. I also re-coded the LOCALE variable because it was stored as numbers that represent different geographic categories. Along with that, I did not remove missing values at this stage since row filtering is meant to occur later for the regression model.
 
 
 ```{r}
-# Select the columns I need for my analysis
+#Selects the columns I need for my analysis
 college_reduced <- college %>%
   select(C150_4, AVGFACSAL, LOCALE)
 
-# Rename them to the variable names I want to use
+#Renames them to the variable names I want to use
 college_clean <- college_reduced %>%
   rename(
     GRAD_RATE = C150_4,
     AVGFACSAL = AVGFACSAL
   )
 
-
+#Converts graduation rate from a proportion to a percentage
 college_clean <- college_clean %>%
   mutate(
     GRAD_RATE = GRAD_RATE * 100
   )
 
+#Re-codes LOCALE values so numbers are readable categories
 college_clean <- college_clean %>%
   mutate(
     LOCALE = ifelse(LOCALE == -3, NA, LOCALE)
   )
+ #-3 represents a missing category and converts it to NA
 ```
 
 
 ## Visualization
 
+To begin exploring the relationship between faculty salary and graduation rate, I created many visualizations to observe variation within each variable and any variations between them. These graphs help reveal general patterns, distributions, and whether a potential relationship exists worth modeling.
+
 ```{r}
+#Histogram of college graduation rates
 
 ggplot(college_clean, aes(x = GRAD_RATE)) +
   geom_histogram(binwidth = 5, fill = "pink", color = "black") +
@@ -100,11 +104,14 @@ ggplot(college_clean, aes(x = GRAD_RATE)) +
   )
 
 ```
-The histogram shows that graduation rates vary widely among colleges. Most institutions fall between about 30% and 70%, with fewer colleges having extremely high or extremely low rates. The shape is slightly right-skewed, meaning more colleges have mid-range graduation rates than high ones. This variation suggests that many factors influence graduation rates, which makes it important to check how faculty salary relates to this outcome.
+
+This histogram shows that graduation rates vary widely among colleges. Most schools fall between 30% and 70%, with fewer institutions having extremely low or extremely high rates. The distribution is slightly right-skewed, meaning more schools have moderate graduation rates rather than very high ones. This spread suggests that many factors impact graduation rates, which makes it relevant to examine whether faculty salary plays a role.
 
 
 
 ```{r}
+#Histogram of faculty salary distribution
+
 ggplot(college_clean, aes(x = AVGFACSAL)) +
   geom_histogram(binwidth = 1000, fill = "purple", color = "black") +
   labs(
@@ -115,10 +122,12 @@ ggplot(college_clean, aes(x = AVGFACSAL)) +
 
 ```
 
-The histogram shows that most colleges pay between $40,000 and $80,000 on average. There are fewer colleges with very high salaries, which makes the distribution slightly right-skewed. This suggests that salary levels vary noticeably between institutions, and these differences could affect factors like student success and graduation outcomes.
+This graph shows that most colleges pay faculty between $40,000 and $80,000, with fewer institutions offering very high salaries. The distribution is slightly right-skewed, meaning high-salary colleges are less common. The wide spread in salary suggests that institutions noticeably differ in funding and resources, which may contribute to differences in graduation outcomes.
 
 
 ```{r}
+#Scatter plot showing association between salary and graduation rate
+
 ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
   geom_point(alpha = 0.5, color = "red") +
   labs(
@@ -129,12 +138,14 @@ ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
 
 ```
 
-The scatter plot shows a positive trend. Colleges that pay higher average faculty salaries tend to have higher graduation rates, although the points are somewhat spread out. This shows that faculty salary might play a part in student success, but it is unlikely to be the only factor. The moderate spread of points suggests other variables may also influence graduation rates.
+The scatter plot shows a positive trend, meaning colleges with higher faculty salaries tend to have higher graduation rates. However, the points are fairly spread out, suggesting salary alone doesn't fully predict graduation success. This indicates that salary may influence outcomes but is only one of several contributing factors.
 
 
 ```{r}
+#Facet plot to compare relationship across different campus locales
+
 ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
-  geom_point(alpha = 0.5, color = "darkorange") +
+  geom_point(alpha = 0.5, color = "pink") +
   facet_wrap(~ LOCALE) +
   labs(
     title = "Graduation Rate vs Salary by Region",
@@ -143,6 +154,9 @@ ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
   )
 
 ```
+
+When evaluated by locale, the trend between salary and graduation appears in most settings, but the strength varies. Urban and suburban colleges tend to show slightly closer clustering and higher salaries, while rural schools show more spread and lower average graduation rates. This suggests location could be a factor that interacts with salary, meaning differences in resources across locales could influence student outcomes.
+
 
 
 ## Summary Statistics
@@ -220,6 +234,7 @@ The glance() output shows us R squared, which tells us how much of the variation
 
 Before trusting the results from a linear regression model, it is important to check whether the main assumptions are met. These assumptions include linearity between the variables, constant variance of the residuals, and residuals that are roughly normally distributed. To evaluate this, I created three diagnostic plots using the fitted model. 
 
+
 ```{r}
 college_clean$predicted <- predict(model, newdata = college_clean)
 
@@ -236,9 +251,44 @@ ggplot(college_clean, aes(x = predicted, y = GRAD_RATE)) +
 
 In this plot, the points fall close to the red line for the most part and fits the data well. The closer the points are to the line, the better the model is at predicting actual graduation rates. The points follow the general trend but still show some spread, meaning the model captures some of the relationship but is not perfect.
 
+
+
+```{r}
+college_model <- college_clean %>%
+  filter(!is.na(GRAD_RATE), !is.na(AVGFACSAL))
+
+college_model$predicted <- predict(model)
+college_model$residuals <- resid(model)
+
+ggplot(college_model, aes(x = predicted, y = residuals)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "red") +
+  labs(
+    title = "Residuals vs Predicted Values",
+    x = "Predicted Graduation Rate (%)",
+    y = "Residuals"
+  )
+
+```
+
+The residuals vs predicted plot helps check whether the variance of the residuals is consistent across the range of predicted graduation rates. There is noticeable spread in the residuals, meaning the model does not perfectly predict graduation rates and there are other factors not included in the model. Since the residuals are fairly symmetric and do not show a funnel shape, the constant variance assumption seems mostly satisfied. Overall, the plot supports the use of a linear model, but it also shows that while salary explains part of the variation in graduation rate, it is not the only influencing factor.
+
+
+```{r}
+qqnorm(college_model$residuals)
+qqline(college_model$residuals, col = "red")
+
+```
+
+The Q-Q plot checks whether the residuals are normally distributed, which is one of the key assumptions for linear regression. In my plot, most of the points fall close to the straight reference line, especially in the middle of the distribution, which suggests that the normality assumption is mostly met. There are small deviations near the tails, but not extreme enough to invalidate the model. Since the residuals don't strongly curve away from the line, it shows that using a linear model is appropriate, and any deviants are mild enough that they should not significantly affect the conclusions.
+
+Overall, the linear regression model shows that average faculty salary is positively related to graduation rate, and the extremely small p-value confirms that this relationship is statistically significant rather than due to random chance. The model’s R-squared value shows that salary explains part of the variation in graduation rates, but not all of it, meaning there are other factors influencing student success that were not included in this model. The diagnostic plots mostly support the assumptions needed for linear regression, as the residuals appear randomly scattered and roughly normally distributed with no strong patterns. Together, the results suggest that higher faculty salaries are associated with higher graduation rates, but the model is only moderately strong, so salary should be viewed as one contributing factor rather than the sole determinant of student outcomes.
+
 ## Conclusion
 
+The idea of this project was to explore whether there is a relationship between a college’s graduation rate and its average faculty salary. Based on the results of the linear regression model, there is clear evidence of a positive association between the two variables. The p-value was extremely small, showing that the likelihood of the relationship occurring by chance is basically zero, and the upward trend seen in the scatterplots backs this up. This shows that colleges with higher faculty salaries tend to have higher graduation rates, which could be due to better faculty retention, increased instructional quality, or stronger student support systems in well-funded institutions.
 
+Even though salary had a statistically significant effect, the R-squared value showed that it explains only part of the variation in graduation rates. This means that salary alone cannot predict student success, and other factors such as institutional resources, student demographics, or academic programs likely play important roles. The diagnostic plots indicated that the assumptions of linear regression were mostly satisfied, so the model is appropriate, but also not perfect. Overall, this analysis suggests that increasing faculty compensation may contribute to improved graduation outcomes, but a more complete model including additional variables would give an even better understanding of what drives student success.
 
 
 
