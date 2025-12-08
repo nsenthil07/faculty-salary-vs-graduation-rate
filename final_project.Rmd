@@ -65,7 +65,7 @@ Because the original dataset uses its own column abbreviations, I renamed the va
 ```{r}
 # Select the columns I need for my analysis
 college_reduced <- college %>%
-  select(C150_4, AVGFACSAL)
+  select(C150_4, AVGFACSAL, LOCALE)
 
 # Rename them to the variable names I want to use
 college_clean <- college_reduced %>%
@@ -80,6 +80,10 @@ college_clean <- college_clean %>%
     GRAD_RATE = GRAD_RATE * 100
   )
 
+college_clean <- college_clean %>%
+  mutate(
+    LOCALE = ifelse(LOCALE == -3, NA, LOCALE)
+  )
 ```
 
 
@@ -143,13 +147,94 @@ ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
 
 ## Summary Statistics
 
+In this section I find summary statistics for the main variables in my analysis. Graduation rate (GRAD_RATE) and average faculty salary (AVGFACSAL) are both continuous variables, and locale is a categorical variable that describes the setting of each institution, like the city, suburb, town, or rural area. Looking at summary statistics helps establish and confirm the patterns seen in the plots and provides numerical context for the later modeling.
+
+```{r}
+#locale
+college_clean %>%
+  group_by(LOCALE) %>%
+  summarize(
+    n = n()
+  )
+```
+
+This table reports how many colleges fall into each locale category. Some locale types have many more schools than others, which means those categories will have a larger influence on the overall patterns in the data. The imbalance also suggests that, when interpreting results, it is important to remember that certain settings are better represented than others.
+
+```{r}
+#graduation rate grouped by locale
+grad_stats <- college_clean %>%
+  filter(!is.na(GRAD_RATE)) %>%      
+  filter(!is.na(LOCALE)) %>%         
+  group_by(LOCALE) %>%
+  summarize(
+    n         = n(),
+    mean_grad = mean(GRAD_RATE),
+    median_grad = median(GRAD_RATE),
+    min_grad  = min(GRAD_RATE),
+    max_grad  = max(GRAD_RATE),
+    sd_grad   = sd(GRAD_RATE),
+    iqr_grad  = IQR(GRAD_RATE)
+  )
+```
+
+Some locale categories contained no valid graduation rate records, which created warnings when calculating summary statistics. To fix this, rows with missing GRAD_RATE or missing LOCALE were removed only for the summary section so that calculations were meaningful and able to be interpreted. This preserves the dataset elsewhere in the analysis as instructed.
 
 
+```{r}
+#average faculty salary grouped by locale
+salary_stats <- college_clean %>%
+  group_by(LOCALE) %>%
+  summarize(
+    n            = sum(!is.na(AVGFACSAL)),
+    mean_salary   = mean(AVGFACSAL, na.rm = TRUE),
+    median_salary = median(AVGFACSAL, na.rm = TRUE),
+    min_salary    = min(AVGFACSAL, na.rm = TRUE),
+    max_salary    = max(AVGFACSAL, na.rm = TRUE),
+    sd_salary     = sd(AVGFACSAL, na.rm = TRUE),
+    iqr_salary    = IQR(AVGFACSAL, na.rm = TRUE)
+  )
+
+```
+The table above summarizes average faculty salary across different college locales. The sample size (n) shows how many institutions reported salary data in each category, while the mean and median show typical pay levels. The minimum and maximum values highlight the spread of salaries, and the standard deviation and interquartile range measure how widely salaries vary within each group. Observing these summary statistics allows us to compare salary differences between institutional settings.
 
 ## Data Analysis
 
+Since my research question asks whether faculty salary is related to graduation rate, and both variables are continuous, I will use a linear regression model to examine the relationship. The response variable is GRAD_RATE, and the explanatory variable is AVGFACSAL. The goal is to determine whether increases in faculty salary are associated with increases in graduation rate across U.S. colleges.
+
+```{r}
+#linear regression model
+model <- lm(GRAD_RATE ~ AVGFACSAL, data = college_clean)
+
+#coefficients
+library(broom)
+tidy(model)
+```
+This model estimates how graduation rate changes on average for each increase in average faculty salary (by 1). The tidy() output reports the intercept and slope. A positive slope would mean that higher faculty salaries are associated with higher graduation rates.
+
+```{r}
+glance(model)
+```
+
+The glance() output shows us R squared, which tells us how much of the variation in graduation rate is explained only by salary. The p-value for the salary coefficient was extremely small (p < 0.001), signifying that the relationship between average faculty salary and graduation rate is statistically significant. Therefore, we reject the null hypothesis and conclude that faculty salary is positively associated with graduation outcomes in U.S. colleges.
 
 
+Before trusting the results from a linear regression model, it is important to check whether the main assumptions are met. These assumptions include linearity between the variables, constant variance of the residuals, and residuals that are roughly normally distributed. To evaluate this, I created three diagnostic plots using the fitted model. 
+
+```{r}
+college_clean$predicted <- predict(model, newdata = college_clean)
+
+ggplot(college_clean, aes(x = predicted, y = GRAD_RATE)) +
+  geom_point(alpha = 0.5, color = "green") +
+  geom_abline(color = "red") +
+  labs(
+    title = "Observed vs Predicted Graduation Rates",
+    x = "Predicted Graduation Rate (%)",
+    y = "Observed Graduation Rate (%)"
+  )
+
+```
+
+In this plot, the points fall close to the red line for the most part and fits the data well. The closer the points are to the line, the better the model is at predicting actual graduation rates. The points follow the general trend but still show some spread, meaning the model captures some of the relationship but is not perfect.
 
 ## Conclusion
 
