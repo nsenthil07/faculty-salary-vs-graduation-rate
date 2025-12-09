@@ -85,6 +85,28 @@ college_clean <- college_clean %>%
     LOCALE = ifelse(LOCALE == -3, NA, LOCALE)
   )
  #-3 represents a missing category and converts it to NA
+
+#Readable categories
+college_clean <- college_clean %>%
+  mutate(
+    LOCALE = recode(
+      LOCALE,
+      `11` = "City: Large",
+      `12` = "City: Midsize",
+      `13` = "City: Small",
+      `21` = "Suburb: Large",
+      `22` = "Suburb: Midsize",
+      `23` = "Suburb: Small",
+      `31` = "Town: Outskirts",
+      `32` = "Town: Distant",
+      `33` = "Town: Remote",
+      `41` = "Rural: Outskirts",
+      `42` = "Rural: Distant",
+      `43` = "Rural: Remote"
+    )
+  )
+
+
 ```
 
 
@@ -92,7 +114,7 @@ college_clean <- college_clean %>%
 
 To begin exploring the relationship between faculty salary and graduation rate, I created many visualizations to observe variation within each variable and any variations between them. These graphs help reveal general patterns, distributions, and whether a potential relationship exists worth modeling.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Histogram of college graduation rates
 
 ggplot(college_clean, aes(x = GRAD_RATE)) +
@@ -109,7 +131,7 @@ This histogram shows that graduation rates vary widely among colleges. Most scho
 
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Histogram of faculty salary distribution
 
 ggplot(college_clean, aes(x = AVGFACSAL)) +
@@ -125,7 +147,7 @@ ggplot(college_clean, aes(x = AVGFACSAL)) +
 This graph shows that most colleges pay faculty between $40,000 and $80,000, with fewer institutions offering very high salaries. The distribution is slightly right-skewed, meaning high-salary colleges are less common. The wide spread in salary suggests that institutions noticeably differ in funding and resources, which may contribute to differences in graduation outcomes.
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Scatter plot showing association between salary and graduation rate
 
 ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
@@ -141,14 +163,15 @@ ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
 The scatter plot shows a positive trend, meaning colleges with higher faculty salaries tend to have higher graduation rates. However, the points are fairly spread out, suggesting salary alone doesn't fully predict graduation success. This indicates that salary may influence outcomes but is only one of several contributing factors.
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Facet plot to compare relationship across different campus locales
-
-ggplot(college_clean, aes(x = AVGFACSAL, y = GRAD_RATE)) +
+college_clean %>%
+  filter(!is.na(LOCALE)) %>%  # Prevent NA panel from appearing
+  ggplot(aes(x = AVGFACSAL, y = GRAD_RATE)) +
   geom_point(alpha = 0.5, color = "pink") +
   facet_wrap(~ LOCALE) +
   labs(
-    title = "Graduation Rate vs Salary by Region",
+    title = "Graduation Rate vs Salary by Locale",
     x = "Average Faculty Salary (USD)",
     y = "Graduation Rate (%)"
   )
@@ -167,9 +190,9 @@ In this section I find summary statistics for the main variables in my analysis.
 #Count the number of schools in each locale category
 college_clean %>%
   group_by(LOCALE) %>%
-  summarize(
-    n = n()
-  )
+  summarize(n = n()) %>%
+  head()   
+
 ```
 
 This table shows how many colleges fall into each locale category. Some groups have more institutions than others, meaning that certain campus environments, like large cities and suburbs, are more common in the dataset. Because of this variation, some locale types will influence results more than others, so it is important to keep representation in mind when comparing outcomes across groups.
@@ -228,15 +251,17 @@ tidy(model)
 
 The output shows the intercept and slope of the regression line. The slope for average faculty salary is positive, meaning graduation rate increases slightly as faculty salary increases. This means colleges with higher average salaries tend to have higher graduation rates on average.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Model summary
-glance(model)
+glance(model) %>%
+  select(r.squared, adj.r.squared, sigma, statistic, p.value) %>%
+  knitr::kable()
 ```
 
 The glance() output shows that the model’s R-squared is about 0.25, which means faculty salary explains around 25% of the variation in graduation rate. The p-value for salary is very small (p < 0.001), so the relationship between salary and graduation rate is statistically significant. This means we reject the idea that salary and graduation rate are unrelated, and conclude that higher faculty pay is associated with better student outcomes. However, the model is only moderately strong, so salary is not the only factor that affects graduation rates.
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 #Predicted values for visualization
 
 college_clean$predicted <- predict(model, newdata = college_clean)
@@ -256,7 +281,7 @@ This plot checks how well the model predictions match real graduation rates. Man
 
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 college_model <- college_clean %>%
   filter(!is.na(GRAD_RATE), !is.na(AVGFACSAL))
 
@@ -277,7 +302,7 @@ ggplot(college_model, aes(x = predicted, y = residuals)) +
 This plot tests constant variance. The residuals are mostly centered around zero without a strong funnel shape, meaning variance is decently consistent. However, the spread shows that the model does not capture all influences on graduation rate. This suggests the linear model is acceptable, but not completely accurate.
 
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 qqnorm(college_model$residuals)
 qqline(college_model$residuals, col = "red")
 
